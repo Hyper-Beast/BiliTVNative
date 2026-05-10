@@ -65,6 +65,7 @@ import com.kirin.bilitv.R
 import com.kirin.bilitv.core.model.VideoSummary
 import com.kirin.bilitv.core.model.isWatchCompleted
 import com.kirin.bilitv.core.model.shouldAdvanceToNextHistoryEpisode
+import com.kirin.bilitv.core.network.SpaceVideoRetryMode
 import com.kirin.bilitv.core.network.VideoRepository
 import com.kirin.bilitv.core.player.AirJumpSegment
 import com.kirin.bilitv.core.player.BiliMediaDataSourceFactory
@@ -503,6 +504,9 @@ fun PlayerScreen(
   suspend fun resolveDisplayMetadata(): PlaybackVideoMetadata? {
     metadata?.let { return it }
     return runCatching { playbackRepository.getVideoMetadata(displayRequest) }
+      .onFailure { error ->
+        Log.w(PlayerUpVideosLogTag, "metadata resolve failed bvid=${displayRequest.bvid}: ${error.toLogBrief()}")
+      }
       .getOrNull()
       ?.also(::applyResolvedMetadata)
   }
@@ -534,6 +538,11 @@ fun PlayerScreen(
     val knownOwnerMid = displayRequest.ownerMid.takeIf { it > 0L } ?: metadata?.ownerMid ?: 0L
     val cachedVideos = upVideoCache[upVideoCacheKey(knownOwnerMid, order)].orEmpty()
       .withoutCurrentVideo(displayRequest)
+    Log.i(
+      PlayerUpVideosLogTag,
+      "open start token=$loadToken bvid=${displayRequest.bvid} cid=${displayRequest.cid} order=$order " +
+        "knownMid=$knownOwnerMid cache=${cachedVideos.size}",
+    )
     upVideoOrder = order
     openPanel(PlayerPanel.UpVideos)
     sidePanelVideos = cachedVideos
@@ -545,16 +554,41 @@ fun PlayerScreen(
       val cacheKey = upVideoCacheKey(ownerMid, order)
       val resolvedCachedVideos = upVideoCache[cacheKey].orEmpty()
         .withoutCurrentVideo(displayRequest)
+      Log.i(
+        PlayerUpVideosLogTag,
+        "resolved token=$loadToken bvid=${displayRequest.bvid} order=$order ownerMid=$ownerMid " +
+          "metadataMid=${resolvedMetadata?.ownerMid ?: 0L} cache=${resolvedCachedVideos.size}",
+      )
       if (sidePanelLoadToken == loadToken && activePanel == PlayerPanel.UpVideos && resolvedCachedVideos.isNotEmpty()) {
         sidePanelVideos = resolvedCachedVideos
         sidePanelLoading = false
         focusedPanelIndex = if (focusedPanelIndex < UpPanelHeaderItemCount) UpPanelHeaderItemCount else focusedPanelIndex
         showControls()
       }
-      val videos = runCatching {
-        videoRepository.getSpaceVideos(mid = ownerMid, order = order)
-      }.getOrDefault(emptyList())
+      val networkResult = if (ownerMid <= 0L) {
+        Log.w(PlayerUpVideosLogTag, "skip network token=$loadToken bvid=${displayRequest.bvid} order=$order: ownerMid=0")
+        Result.success(emptyList())
+      } else {
+        runCatching {
+          videoRepository.getSpaceVideos(
+            mid = ownerMid,
+            order = order,
+            retryMode = SpaceVideoRetryMode.Interactive,
+          )
+        }
+      }
+      val videos = networkResult.onFailure { error ->
+          Log.w(
+            PlayerUpVideosLogTag,
+            "network failed token=$loadToken mid=$ownerMid order=$order bvid=${displayRequest.bvid}: ${error.toLogBrief()}",
+          )
+        }.getOrDefault(emptyList())
       if (sidePanelLoadToken != loadToken || activePanel != PlayerPanel.UpVideos) {
+        Log.i(
+          PlayerUpVideosLogTag,
+          "discard token=$loadToken activeToken=$sidePanelLoadToken activePanel=$activePanel " +
+            "network=${videos.size}",
+        )
         return@launch
       }
       val nextVideos = videos.ifEmpty { upVideoCache[cacheKey].orEmpty() }
@@ -562,6 +596,11 @@ fun PlayerScreen(
       if (videos.isNotEmpty()) {
         upVideoCache = upVideoCache.withBoundedEntry(cacheKey, videos)
       }
+      Log.i(
+        PlayerUpVideosLogTag,
+        "apply token=$loadToken mid=$ownerMid order=$order network=${videos.size} next=${nextVideos.size} " +
+          "usedCacheFallback=${videos.isEmpty() && nextVideos.isNotEmpty()}",
+      )
       sidePanelVideos = nextVideos
       sidePanelLoading = false
       focusedPanelIndex = if (nextVideos.isNotEmpty() && focusedPanelIndex < UpPanelHeaderItemCount) {
@@ -571,8 +610,56 @@ fun PlayerScreen(
       }
       showControls()
 
+      if (ownerMid > 0L && videos.isEmpty() && networkResult.isFailure) {
+        coroutineScope.launch {
+          delay(UpVideosRecoveryRetryDelayMs)
+          if (sidePanelLoadToken != loadToken || activePanel != PlayerPanel.UpVideos) {
+            return@launch
+          }
+          val recoveryVideos = runCatching {
+            videoRepository.getSpaceVideos(
+              mid = ownerMid,
+              order = order,
+              retryMode = SpaceVideoRetryMode.Recovery,
+            )
+          }.onFailure { error ->
+            Log.w(
+              PlayerUpVideosLogTag,
+              "background retry failed token=$loadToken mid=$ownerMid order=$order bvid=${displayRequest.bvid}: ${error.toLogBrief()}",
+            )
+          }.getOrDefault(emptyList())
+          if (
+            recoveryVideos.isEmpty() ||
+            sidePanelLoadToken != loadToken ||
+            activePanel != PlayerPanel.UpVideos
+          ) {
+            return@launch
+          }
+          val recoveredVideos = recoveryVideos.withoutCurrentVideo(displayRequest)
+          if (recoveredVideos.isEmpty()) {
+            return@launch
+          }
+          upVideoCache = upVideoCache.withBoundedEntry(cacheKey, recoveryVideos)
+          Log.i(
+            PlayerUpVideosLogTag,
+            "background apply token=$loadToken mid=$ownerMid order=$order network=${recoveryVideos.size} " +
+              "next=${recoveredVideos.size}",
+          )
+          sidePanelVideos = recoveredVideos
+          sidePanelLoading = false
+          focusedPanelIndex = if (focusedPanelIndex < UpPanelHeaderItemCount) {
+            UpPanelHeaderItemCount
+          } else {
+            focusedPanelIndex.coerceIn(0, (UpPanelHeaderItemCount + recoveredVideos.size - 1).coerceAtLeast(0))
+          }
+          showControls()
+        }
+      }
+
       val followed = runCatching {
         videoRepository.checkFollowStatus(ownerMid)
+      }.onFailure { error ->
+        Log.w(PlayerUpVideosLogTag, "follow check failed token=$loadToken mid=$ownerMid: ${error.toLogBrief()}")
       }.getOrDefault(false)
       if (sidePanelLoadToken != loadToken || activePanel != PlayerPanel.UpVideos) {
         return@launch
@@ -1643,6 +1730,10 @@ private fun Context.createPlayerWakeLock(): PowerManager.WakeLock? {
   }
 }
 
+private fun Throwable.toLogBrief(): String {
+  return "${javaClass.simpleName}: ${message.orEmpty()}"
+}
+
 private sealed interface PlayerScreenState {
   data object Loading : PlayerScreenState
   data class Ready(val info: PlaybackInfo) : PlayerScreenState
@@ -1663,6 +1754,8 @@ private const val AirJumpRewindResetThresholdMs = 2_000L
 private const val AirJumpRewindResetLeadMs = 1_000L
 private const val MaxUpVideoCacheKeys = 4
 private const val MaxUpVideoCacheVideosPerKey = 50
+private const val UpVideosRecoveryRetryDelayMs = 1_200L
+private const val PlayerUpVideosLogTag = "BiliTVNative:UpVideos"
 private const val PlayerDanmakuLogTag = "BiliTVNative:Danmaku"
 private val DanmakuOpacityOptions = listOf(0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f)
 private val DanmakuFontSizeOptions = listOf(16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36)

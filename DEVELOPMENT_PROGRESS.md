@@ -233,3 +233,8 @@
 | P8-07 | 关于展示面板 | Done | 系统设置末尾新增“关于”；焦点移到该行时右侧自动展示项目简介、项目地址二维码、MIT License 和第三方开源库名称/URL/说明，右侧内容纯展示不可聚焦；面板支持液态玻璃开启/关闭两种状态 |
 | P8-08 | README 重写 | Done | `README.md` 已重写为当前项目介绍、功能说明、构建方式和 UI/液态玻璃说明；截图位置保留给用户后续补充 |
 | P8-09 | 根目录 3 个 MD 一致性修正 | Done | 本轮只更新 `AGENTS.md`、`DEVELOPMENT_PLAN.md` 和 `DEVELOPMENT_PROGRESS.md`，删除或改写过期的 `feature/*`、Compose Navigation、Coil 3、Room/Koin 默认推荐和常驻播放器诊断 HUD 说法；`README.md` 未改动 |
+| P8-10 | UP 主面板头部按钮焦点修正 | Done | “最新发布/最热门”和“关注/已关注”不再使用整块粉色实心底作为选中态，改为粉色文字/细边表达选中；焦点态使用白色高亮边框和播放器面板焦点底，避免粉底下焦点不可见；`assembleRelease -PtargetAbi=armeabi-v7a` 通过 |
+| P8-11 | UP 主更多视频间歇加载失败诊断 | Done | 在 `PlayerScreen` 和 `VideoRepository` 增加脱敏日志，记录打开 UP 主面板、mid 解析、缓存命中、space 接口签名/刷新/回退、空 vlist、网络失败和过期 token 丢弃；不打印 Cookie/token；`assembleRelease -PtargetAbi=armeabi-v7a` 通过 |
+| P8-12 | UP 主更多视频 412 风控修复 | Done | 参考 BiliPai 的空间接口处理：UP 投稿请求回到 `mid/pn/ps/order` 基础参数，WBI API 不再强行补 Referer；新增 `buvid3/buvid4` 持久化、SPI 获取和激活请求，空间投稿 Cookie 同时携带登录态与 buvid；412/429/5xx 使用退避重试；`assembleRelease -PtargetAbi=armeabi-v7a` 通过并已安装 `192.168.1.131:5555`，等待实机再次触发验证 |
+| P8-13 | UP 主更多视频 412 加载体验优化 | Done | 将空间投稿加载拆成 `Interactive` 和 `Recovery` 两种重试模式：前台面板只做一次 600ms 短重试，失败后立即结束 loading 并保留缓存/空态；后台 1.2s 后再做恢复重试，成功且仍停留在同一 UP 面板时再刷新列表，避免 412 退避把侧栏卡住数秒；`assembleRelease -PtargetAbi=armeabi-v7a` 通过，已安装并启动 `192.168.1.131:5555` |
+| P8-14 | UP 投稿接口对齐网页抓包 | Done | 根据网页端 `x/space/wbi/arc/search` 抓包同步最新发布/最多播放请求：参数改为 `ps=25,index=1,order_avoided=true,platform=web,web_location=333.1387`，请求头使用 `space.bilibili.com/{mid}` Referer/Origin、Chrome 147 UA、sec-ch-ua/priority/fetch 头，并在 Cookie 中补充登录 mid 对应的 `DedeUserID`；`assembleRelease -PtargetAbi=armeabi-v7a` 通过，已安装并启动 `192.168.1.131:5555` |

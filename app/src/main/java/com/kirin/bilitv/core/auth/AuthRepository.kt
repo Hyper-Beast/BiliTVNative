@@ -52,6 +52,10 @@ class AuthRepository(
           sessData = credentials.sessData,
           biliJct = credentials.biliJct,
         )
+        sessionStore.saveDeviceCookies(
+          buvid3 = credentials.buvid3,
+          buvid4 = credentials.buvid4,
+        )
         sessionStore.saveUserProfile(
           mid = credentials.mid,
           face = null,
@@ -99,6 +103,8 @@ class AuthRepository(
   private fun parseLoginCredentials(data: kotlinx.serialization.json.JsonObject): LoginCredentials {
     var sessData: String? = null
     var biliJct: String? = null
+    var buvid3: String? = null
+    var buvid4: String? = null
     val cookieInfo = data.obj("cookie_info")
     val cookies = cookieInfo?.get("cookies") as? JsonArray
     cookies?.forEach { element ->
@@ -106,12 +112,16 @@ class AuthRepository(
       when (cookie.string("name")) {
         "SESSDATA" -> sessData = cookie.string("value")
         "bili_jct" -> biliJct = cookie.string("value")
+        "buvid3" -> buvid3 = cookie.string("value")
+        "buvid4" -> buvid4 = cookie.string("value")
       }
     }
     return LoginCredentials(
       mid = data.long("mid"),
       sessData = sessData,
       biliJct = biliJct,
+      buvid3 = buvid3,
+      buvid4 = buvid4,
     )
   }
 
@@ -130,6 +140,8 @@ class AuthRepository(
     val mid: Long,
     val sessData: String?,
     val biliJct: String?,
+    val buvid3: String?,
+    val buvid4: String?,
   )
 
   private companion object {

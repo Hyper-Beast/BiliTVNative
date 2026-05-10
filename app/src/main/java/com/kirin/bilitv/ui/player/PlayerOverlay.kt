@@ -1089,26 +1089,39 @@ private fun UpPanelChip(
   selected: Boolean,
 ) {
   val shape = RoundedCornerShape(BiliRadius.Pill)
+  val performancePolicy = LocalBiliPerformancePolicy.current
+  val liquidGlassEnabled = performancePolicy.cinematicVisualEffectsEnabled && performancePolicy.liquidGlassCardsEnabled
   val surfaceColor = when {
-    selected -> BiliColors.BiliPink
     focused -> BiliColors.PlayerPanelFocused
+    selected -> BiliColors.BiliPink.copy(alpha = UpPanelChipSelectedSurfaceAlpha)
     else -> BiliColors.PlayerControlIdle
+  }
+  val borderColor = when {
+    focused -> BiliColors.TextPrimary.copy(alpha = UpPanelChipFocusedBorderAlpha)
+    selected -> BiliColors.BiliPink.copy(alpha = UpPanelChipSelectedBorderAlpha)
+    else -> BiliColors.TextPrimary.copy(alpha = UpPanelChipRestingBorderAlpha)
   }
   Box(
     modifier = Modifier
       .height(BiliSizing.PlayerPanelChipHeight)
       .clip(shape)
-      .playerLiquidGlassSurface(
+      .biliLiquidGlassSurface(
+        enabled = liquidGlassEnabled,
         shape = shape,
-        focused = focused || selected,
         surfaceColor = surfaceColor,
+        borderColor = borderColor,
+        borderWidth = if (focused) BiliFocus.BorderWidth else BiliFocus.RestingBorderWidth,
       )
       .padding(horizontal = BiliSpacing.Md),
     contentAlignment = Alignment.Center,
   ) {
     Text(
       text = text,
-      color = BiliColors.TextPrimary,
+      color = if (selected && !focused) {
+        BiliColors.BiliPink
+      } else {
+        BiliColors.TextPrimary
+      },
       fontSize = BiliTypography.PlayerSettingValue,
       fontWeight = if (selected || focused) FontWeight.Bold else FontWeight.Normal,
       maxLines = 1,
@@ -1960,6 +1973,10 @@ internal const val UpFocusSort = 0
 internal const val UpFocusFollow = 1
 internal const val UpPanelHeaderItemCount = 2
 
+private const val UpPanelChipSelectedSurfaceAlpha = 0.16f
+private const val UpPanelChipFocusedBorderAlpha = 0.82f
+private const val UpPanelChipSelectedBorderAlpha = 0.54f
+private const val UpPanelChipRestingBorderAlpha = 0.16f
 private const val DanmakuSettingsRowCount = 7
 private const val SeekPreviewSpriteScale = 2f
 private const val SeekPreviewSpriteMaxWidth = 360f

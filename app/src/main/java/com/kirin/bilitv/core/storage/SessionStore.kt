@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.map
 data class UserSession(
   val sessData: String? = null,
   val biliJct: String? = null,
+  val buvid3: String? = null,
+  val buvid4: String? = null,
   val mid: Long? = null,
   val face: String? = null,
   val uname: String? = null,
@@ -25,6 +27,8 @@ class SessionStore(private val context: Context) {
     UserSession(
       sessData = preferences[Keys.SessData],
       biliJct = preferences[Keys.BiliJct],
+      buvid3 = preferences[Keys.Buvid3],
+      buvid4 = preferences[Keys.Buvid4],
       mid = preferences[Keys.Mid],
       face = preferences[Keys.Face],
       uname = preferences[Keys.Uname],
@@ -40,6 +44,14 @@ class SessionStore(private val context: Context) {
     preferences[Keys.BiliJct]
   }
 
+  val buvid3: Flow<String?> = context.biliDataStore.data.map { preferences ->
+    preferences[Keys.Buvid3]
+  }
+
+  val buvid4: Flow<String?> = context.biliDataStore.data.map { preferences ->
+    preferences[Keys.Buvid4]
+  }
+
   suspend fun saveSession(sessData: String?, biliJct: String?) {
     context.biliDataStore.edit { preferences ->
       if (sessData.isNullOrBlank()) {
@@ -52,6 +64,22 @@ class SessionStore(private val context: Context) {
         preferences.remove(Keys.BiliJct)
       } else {
         preferences[Keys.BiliJct] = biliJct
+      }
+    }
+  }
+
+  suspend fun saveDeviceCookies(buvid3: String?, buvid4: String?) {
+    context.biliDataStore.edit { preferences ->
+      if (buvid3.isNullOrBlank()) {
+        preferences.remove(Keys.Buvid3)
+      } else {
+        preferences[Keys.Buvid3] = buvid3
+      }
+
+      if (buvid4.isNullOrBlank()) {
+        preferences.remove(Keys.Buvid4)
+      } else {
+        preferences[Keys.Buvid4] = buvid4
       }
     }
   }
@@ -84,6 +112,8 @@ class SessionStore(private val context: Context) {
     context.biliDataStore.edit { preferences ->
       preferences.remove(Keys.SessData)
       preferences.remove(Keys.BiliJct)
+      preferences.remove(Keys.Buvid3)
+      preferences.remove(Keys.Buvid4)
       preferences.remove(Keys.Mid)
       preferences.remove(Keys.Face)
       preferences.remove(Keys.Uname)
@@ -94,6 +124,8 @@ class SessionStore(private val context: Context) {
   private object Keys {
     val SessData = stringPreferencesKey("sessdata")
     val BiliJct = stringPreferencesKey("bili_jct")
+    val Buvid3 = stringPreferencesKey("buvid3")
+    val Buvid4 = stringPreferencesKey("buvid4")
     val Mid = longPreferencesKey("mid")
     val Face = stringPreferencesKey("face")
     val Uname = stringPreferencesKey("uname")

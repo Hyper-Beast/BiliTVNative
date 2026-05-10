@@ -6,6 +6,8 @@ object BiliApiEndpoints {
   const val AppBase = "https://app.bilibili.com"
 
   const val WbiNav = "$ApiBase/x/web-interface/nav"
+  const val BuvidSpi = "$ApiBase/x/frontend/finger/spi"
+  const val BuvidActivate = "$ApiBase/x/internal/gaia-gateway/ExClimbWuzhi"
   const val Recommend = "$ApiBase/x/web-interface/wbi/index/top/feed/rcmd"
   const val Popular = "$ApiBase/x/web-interface/popular"
   const val Region = "$ApiBase/x/web-interface/dynamic/region"

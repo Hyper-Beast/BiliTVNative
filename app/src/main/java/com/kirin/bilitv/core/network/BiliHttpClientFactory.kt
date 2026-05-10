@@ -10,10 +10,16 @@ class BiliHttpClientFactory {
       .addInterceptor(BrotliInterceptor)
       .addInterceptor { chain ->
         val request = chain.request()
-        val enriched = request.newBuilder()
+        val omitReferer = request.header(BiliHeaders.OmitRefererHeader) == BiliHeaders.OmitRefererValue
+        val builder = request.newBuilder()
+          .removeHeader(BiliHeaders.OmitRefererHeader)
           .header("User-Agent", request.header("User-Agent") ?: BiliHeaders.UserAgent)
-          .header("Referer", request.header("Referer") ?: BiliHeaders.Referer)
-          .build()
+        if (omitReferer) {
+          builder.removeHeader("Referer")
+        } else {
+          builder.header("Referer", request.header("Referer") ?: BiliHeaders.Referer)
+        }
+        val enriched = builder.build()
         chain.proceed(enriched)
       }
       .build()
