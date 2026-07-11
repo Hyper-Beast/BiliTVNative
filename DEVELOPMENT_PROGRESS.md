@@ -237,6 +237,7 @@
 | P8-11 | UP 主更多视频间歇加载失败诊断 | Done | 在 `PlayerScreen` 和 `VideoRepository` 增加脱敏日志，记录打开 UP 主面板、mid 解析、缓存命中、space 接口签名/刷新/回退、空 vlist、网络失败和过期 token 丢弃；不打印 Cookie/token；`assembleRelease -PtargetAbi=armeabi-v7a` 通过 |
 | P8-13 | UP 主更多视频 412 加载体验优化 | Done | 将空间投稿加载拆成 `Interactive` 和 `Recovery` 两种重试模式：前台面板只做一次 600ms 短重试，失败后立即结束 loading 并保留缓存/空态；后台 1.2s 后再做恢复重试，成功且仍停留在同一 UP 面板时再刷新列表，避免 412 退避把侧栏卡住数秒；`assembleRelease -PtargetAbi=armeabi-v7a` 通过，已安装并启动 `192.168.1.131:5555` |
 | P8-14 | UP 投稿接口对齐网页抓包 | Done | 根据网页端 `x/space/wbi/arc/search` 抓包同步最新发布/最多播放请求：参数改为 `ps=25,index=1,order_avoided=true,platform=web,web_location=333.1387`，请求头使用 `space.bilibili.com/{mid}` Referer/Origin、Chrome 147 UA、sec-ch-ua/priority/fetch 头，并在 Cookie 中补充登录 mid 对应的 `DedeUserID`；`assembleRelease -PtargetAbi=armeabi-v7a` 通过，已安装并启动 `192.168.1.131:5555` |
+| P8-15 | Sony X9000H 解码兼容性说明 | Done | README 新增外部真机验证：Android TV 12 / API 31、`armeabi-v7a` 的 Sony X9000H 在 Auto 选择 MediaTek HEVC 解码器时，部分视频长时间缓冲并出现参数/fallback 日志；固定 H.264 后同一视频正常起播；本项只补充适配建议，不修改播放器逻辑 |
 
 ## P9 重构拆分收尾
 
