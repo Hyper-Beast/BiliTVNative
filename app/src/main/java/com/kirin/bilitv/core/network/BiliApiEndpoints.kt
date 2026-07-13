@@ -23,6 +23,8 @@ object BiliApiEndpoints {
   const val PlayUrl = "$ApiBase/x/player/wbi/playurl"
   const val PlayerVideoshot = "$ApiBase/x/player/videoshot"
   const val PlayerDanmaku = "$ApiBase/x/v1/dm/list.so"
+  const val ArchiveRepliesMain = "$ApiBase/x/v2/reply/main"
+  const val ArchiveReplies = "$ApiBase/x/v2/reply"
   const val CommentBase = "https://comment.bilibili.com"
   const val SponsorBlockSkipSegments = "https://bsbsb.top/api/skipSegments"
   const val PlayerOnlineTotal = "$ApiBase/x/player/online/total"

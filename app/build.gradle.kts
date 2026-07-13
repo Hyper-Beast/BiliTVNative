@@ -4,11 +4,18 @@ plugins {
   alias(libs.plugins.kotlin.serialization)
 }
 
-val supportedAbis = setOf("armeabi-v7a", "arm64-v8a")
+val releaseAbis = setOf("armeabi-v7a", "arm64-v8a")
+val emulatorValidationAbis = setOf("x86", "x86_64")
 val targetAbi = providers.gradleProperty("targetAbi").orNull?.trim()?.takeIf { it.isNotEmpty() }
+// x86/x86_64 is opt-in for emulator validation only; default app builds stay on release ARM ABIs.
+val emulatorValidationAbi = providers.gradleProperty("emulatorValidationAbi").orNull.toBoolean()
+val supportedAbis = releaseAbis + if (emulatorValidationAbi) emulatorValidationAbis else emptySet()
 
 require(targetAbi == null || targetAbi in supportedAbis) {
   "Unsupported targetAbi=$targetAbi. Supported values: ${supportedAbis.joinToString()}"
+}
+require(!emulatorValidationAbi || targetAbi in emulatorValidationAbis) {
+  "emulatorValidationAbi=true must be paired with targetAbi=${emulatorValidationAbis.joinToString("/")}."
 }
 
 android {
@@ -21,10 +28,11 @@ android {
     targetSdk = 36
     versionCode = 100
     versionName = "1.0.0"
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
     ndk {
       abiFilters.clear()
-      abiFilters += targetAbi?.let(::listOf) ?: supportedAbis.toList()
+      abiFilters += targetAbi?.let(::listOf) ?: releaseAbis.toList()
     }
 
   }
@@ -82,6 +90,8 @@ dependencies {
   implementation(libs.androidx.datastore.preferences)
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)
+  implementation(libs.androidx.lifecycle.viewmodel.compose)
+  implementation(libs.androidx.lifecycle.viewmodel.ktx)
   implementation(libs.backdrop)
   implementation(libs.compose.foundation)
   implementation(libs.compose.material3)
@@ -102,5 +112,11 @@ dependencies {
   implementation(libs.tv.material)
   implementation(libs.zxing.core)
 
+  testImplementation(libs.junit4)
+
+  androidTestImplementation(platform(libs.compose.bom))
+  androidTestImplementation(libs.compose.ui.test.junit4)
+
+  debugImplementation(libs.compose.ui.test.manifest)
   debugImplementation(libs.compose.ui.tooling)
 }

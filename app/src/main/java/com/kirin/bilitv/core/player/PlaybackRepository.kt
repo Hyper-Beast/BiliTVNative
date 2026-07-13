@@ -37,6 +37,10 @@ class PlaybackRepository(
     apiClient = apiClient,
     sessionStore = sessionStore,
   )
+  private val commentRepository = CommentRepository(
+    apiClient = apiClient,
+    sessionStore = sessionStore,
+  )
   private val airJumpRepository = AirJumpRepository(apiClient)
 
   suspend fun getPlaybackInfo(
@@ -181,6 +185,10 @@ class PlaybackRepository(
 
   suspend fun getDanmaku(cid: Long): List<DanmakuEntry> {
     return danmakuRepository.getDanmaku(cid)
+  }
+
+  suspend fun getComments(aid: Long): List<PlayerComment> {
+    return commentRepository.getComments(aid)
   }
 
   suspend fun getAirJumpSegments(bvid: String): List<AirJumpSegment> {

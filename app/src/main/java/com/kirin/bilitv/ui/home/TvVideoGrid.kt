@@ -53,6 +53,19 @@ import kotlin.math.roundToInt
 
 private const val TvGridRestoreFocusRetryCount = 8
 
+internal class TvGridFocusRestoreTargetTracker {
+  private var trackedRequestKey: Int? = null
+  private var trackedIndex: Int = 0
+
+  fun targetIndex(requestKey: Int, currentIndex: Int): Int {
+    if (trackedRequestKey != requestKey) {
+      trackedRequestKey = requestKey
+      trackedIndex = currentIndex
+    }
+    return trackedIndex
+  }
+}
+
 private val TvGridBringIntoViewSpec = object : BringIntoViewSpec {
   override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
     // D-pad row scrolling is handled below. Returning 0 prevents Compose's
@@ -86,7 +99,12 @@ internal fun TvVideoGrid(
 ) {
   val columns = BiliSizing.VideoGridColumns
   val rowCount = (videos.size + columns - 1) / columns
-  val restoreTargetIndex = restoredFocusIndex.coerceIn(0, (videos.size - 1).coerceAtLeast(0))
+  val restoreTargetTracker = remember { TvGridFocusRestoreTargetTracker() }
+  val frozenRestoreTargetIndex = restoreTargetTracker.targetIndex(
+    requestKey = restoreFocusRequestKey,
+    currentIndex = restoredFocusIndex,
+  )
+  val restoreTargetIndex = frozenRestoreTargetIndex.coerceIn(0, (videos.size - 1).coerceAtLeast(0))
   val restoreTargetRow = if (videos.isEmpty()) {
     0
   } else {
@@ -138,11 +156,11 @@ internal fun TvVideoGrid(
     )
   }
 
-  LaunchedEffect(restoreFocusRequestKey, restoredFocusIndex, videos.size) {
+  LaunchedEffect(restoreFocusRequestKey, videos.size) {
     if (restoreFocusRequestKey <= 0 || videos.isEmpty()) {
       return@LaunchedEffect
     }
-    val targetIndex = restoredFocusIndex.coerceIn(0, videos.lastIndex)
+    val targetIndex = restoreTargetIndex
     scrollRow(targetIndex / columns, smoothScroll = false)
     repeat(TvGridRestoreFocusRetryCount) {
       withFrameNanos { }

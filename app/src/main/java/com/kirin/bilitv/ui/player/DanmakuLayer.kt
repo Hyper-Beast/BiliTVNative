@@ -193,7 +193,7 @@ private fun DanmakuView.applyDanmakuConfig(config: DanmakuConfigKey) {
   controller.config.common.playSpeed = (effectivePlaybackSpeed * 100f).roundToInt().coerceAtLeast(50)
   controller.config.common.topVisible = settings.allowTop
   controller.config.common.bottomVisible = settings.allowBottom
-  controller.config.common.pauseInvalidateWhenBlank = true
+  controller.config.common.pauseInvalidateWhenBlank = false
 
   controller.config.text.size = fontSizePx
   controller.config.text.color = Color.WHITE

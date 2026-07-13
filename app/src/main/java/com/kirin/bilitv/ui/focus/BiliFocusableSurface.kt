@@ -31,6 +31,8 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
 import com.kirin.bilitv.ui.glass.biliLiquidGlassSurface
+import com.kirin.bilitv.ui.input.InteractionMode
+import com.kirin.bilitv.ui.input.LocalInteractionMode
 import com.kirin.bilitv.ui.settings.LocalBiliPerformancePolicy
 import com.kirin.bilitv.ui.theme.BiliFocus
 import com.kirin.bilitv.ui.theme.BiliMotion
@@ -61,8 +63,11 @@ fun BiliFocusableSurface(
 ) {
   var focused by remember { mutableStateOf(false) }
   val performancePolicy = LocalBiliPerformancePolicy.current
+  val interactionMode = LocalInteractionMode.current
   val homeColors = LocalHomeColors.current
-  val focusShadowEnabled = performancePolicy.focusShadowEnabled && shadowOnFocus
+  val focusVisualsEnabled = interactionMode == InteractionMode.Tv
+  val visuallyFocused = focused && focusVisualsEnabled
+  val focusShadowEnabled = focusVisualsEnabled && performancePolicy.focusShadowEnabled && shadowOnFocus
   val liquidGlassEnabled = performancePolicy.cinematicVisualEffectsEnabled && performancePolicy.liquidGlassCardsEnabled
   val targetFocusedBorderColor = focusedBorderColor ?: homeColors.accent
   val targetRestingBorderColor = restingBorderColor ?: homeColors.glassBorder
@@ -70,8 +75,8 @@ fun BiliFocusableSurface(
   val targetRestingBackgroundColor = restingBackgroundColor ?: homeColors.cardSurface
   val scale = if (performancePolicy.motionEnabled) {
     animateFloatAsState(
-      targetValue = if (focused && scaleOnFocus) focusedScale else 1f,
-      animationSpec = if (focused) {
+      targetValue = if (visuallyFocused && scaleOnFocus) focusedScale else 1f,
+      animationSpec = if (visuallyFocused) {
         spring(
           dampingRatio = BiliMotion.FocusSpringDampingRatio,
           stiffness = BiliMotion.FocusSpringStiffness,
@@ -86,16 +91,16 @@ fun BiliFocusableSurface(
   }
   val borderWidth = if (performancePolicy.motionEnabled) {
     animateDpAsState(
-      targetValue = if (focused) focusedBorderWidth else restingBorderWidth,
+      targetValue = if (visuallyFocused) focusedBorderWidth else restingBorderWidth,
       animationSpec = tween(BiliMotion.FocusMs, easing = BiliMotion.FocusEasing),
       label = "focusBorderWidth",
     ).value
   } else {
-    if (focused) focusedBorderWidth else restingBorderWidth
+    if (visuallyFocused) focusedBorderWidth else restingBorderWidth
   }
   val shadowElevation = if (performancePolicy.motionEnabled) {
     animateDpAsState(
-      targetValue = if (focused && focusShadowEnabled) {
+      targetValue = if (visuallyFocused && focusShadowEnabled) {
         focusedShadowElevation
       } else {
         BiliFocus.RestingShadowElevation
@@ -108,7 +113,7 @@ fun BiliFocusableSurface(
   }
   val lift = if (performancePolicy.motionEnabled) {
     animateDpAsState(
-      targetValue = if (focused && scaleOnFocus) {
+      targetValue = if (visuallyFocused && scaleOnFocus) {
         focusedLift
       } else {
         BiliFocus.RestingLift
@@ -121,21 +126,21 @@ fun BiliFocusableSurface(
   }
   val borderColor = if (performancePolicy.motionEnabled) {
     animateColorAsState(
-      targetValue = if (focused) targetFocusedBorderColor else targetRestingBorderColor,
+      targetValue = if (visuallyFocused) targetFocusedBorderColor else targetRestingBorderColor,
       animationSpec = tween(BiliMotion.FocusMs, easing = BiliMotion.FocusEasing),
       label = "focusBorder",
     ).value
   } else {
-    if (focused) targetFocusedBorderColor else targetRestingBorderColor
+    if (visuallyFocused) targetFocusedBorderColor else targetRestingBorderColor
   }
   val backgroundColor = if (performancePolicy.motionEnabled) {
     animateColorAsState(
-      targetValue = if (focused) targetFocusedBackgroundColor else targetRestingBackgroundColor,
+      targetValue = if (visuallyFocused) targetFocusedBackgroundColor else targetRestingBackgroundColor,
       animationSpec = tween(BiliMotion.FocusMs, easing = BiliMotion.FocusEasing),
       label = "focusBackground",
     ).value
   } else {
-    if (focused) {
+    if (visuallyFocused) {
       targetFocusedBackgroundColor
     } else {
       targetRestingBackgroundColor
@@ -146,7 +151,7 @@ fun BiliFocusableSurface(
 
   Box(
     modifier = modifier
-      .zIndex(if (focused) BiliFocus.FocusedZIndex else 0f)
+      .zIndex(if (visuallyFocused) BiliFocus.FocusedZIndex else 0f)
       .graphicsLayer {
         scaleX = scale
         scaleY = scale
@@ -165,7 +170,7 @@ fun BiliFocusableSurface(
         borderWidth = borderWidth,
       )
       .then(
-        if (focused && focusedForeground != null) {
+        if (visuallyFocused && focusedForeground != null) {
           Modifier.drawWithContent {
             drawContent()
             focusedForeground()

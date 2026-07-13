@@ -36,3 +36,6 @@ captures/
 # OS temporary files
 .DS_Store
 Thumbs.db
+
+.trellis/
+.codegraph/

@@ -71,6 +71,8 @@ import com.kirin.bilitv.ui.theme.BiliSizing
 import com.kirin.bilitv.ui.theme.BiliSpacing
 import com.kirin.bilitv.ui.theme.BiliTypography
 import com.kirin.bilitv.ui.theme.LocalHomeColors
+import com.kirin.bilitv.ui.transition.playbackSharedBounds
+import com.kirin.bilitv.ui.transition.playbackSharedTransitionKey
 import kotlinx.coroutines.delay
 
 enum class VideoCardMode {
@@ -566,11 +568,16 @@ private fun VideoCover(
   } else {
     0f
   }
+  val sharedKey = video.playbackSharedTransitionKey()
 
   Box(
     modifier = Modifier
       .fillMaxWidth()
       .aspectRatio(BiliSizing.VideoThumbnailAspectRatio)
+      .playbackSharedBounds(
+        key = sharedKey,
+        enabled = performancePolicy.motionEnabled,
+      )
       .clip(RoundedCornerShape(BiliRadius.Card))
       .background(coverBackground),
   ) {

@@ -134,6 +134,11 @@ object BiliSizing {
   val HomeVideoGridTopPadding = 24.dp
   val HomeVideoGridTopBleed = 16.dp
   val SearchVideoGridHorizontalPadding = 16.dp
+  val TouchPullRefreshTriggerDistance = 72.dp
+  val TouchPullRefreshMaxDistance = 112.dp
+  val TouchPullRefreshSpinnerSize = 28.dp
+  val TouchPullRefreshIndicatorTopPadding = 0.dp
+  val TouchPullRefreshContentTravel = 58.dp
   val VideoGridBottomPadding = 72.dp
   val VideoCardMinHeight = 240.dp
   const val VideoThumbnailAspectRatio = 16f / 9f
@@ -160,6 +165,10 @@ object BiliSizing {
   val SearchKeyboardPanelWidth = 380.dp
   val SearchInputHeight = 44.dp
   val SearchKeyboardButtonHeight = 48.dp
+  val SearchTouchInputHeight = 56.dp
+  val SearchTouchActionButtonWidth = 86.dp
+  val SearchTouchTopPadding = 20.dp
+  val SearchTouchContentTopPadding = 18.dp
   val LoginQrContainerSize = 220.dp
   val LoginQrImageSize = 180.dp
   val PlayerControlButtonWidth = 112.dp
@@ -201,6 +210,35 @@ object BiliSizing {
   val PlayerSeekPreviewWidth = 240.dp
   val PlayerSeekPreviewHeight = 96.dp
   val PlayerPauseIndicatorSize = 96.dp
+  val PlayerTouchEdgeSwipeWidth = 80.dp
+  val PlayerTouchBottomGestureIgnoreHeight = 44.dp
+  val PlayerTouchFeedbackCompactSize = 80.dp
+  val PlayerTouchFeedbackSize = 96.dp
+  val PlayerTouchFeedbackRefinedSize = 108.dp
+  val PlayerTouchFeedbackIconSize = 40.dp
+  val PlayerTouchFeedbackRefinedIconSize = 46.dp
+  val PlayerTouchFeedbackRingStroke = 5.dp
+  val PlayerTouchSpeedBoostTopPadding = 16.dp
+  val PlayerTouchSpeedBoostWidth = 116.dp
+  val PlayerTouchSpeedBoostHeight = 40.dp
+  val PlayerTouchSpeedBoostIconSize = 22.dp
+  val PlayerTouchSpeedBoostHorizontalPadding = 16.dp
+  val PlayerTouchSpeedBoostVerticalPadding = 8.dp
+  val PlayerTouchTopGradientHeight = 176.dp
+  val PlayerTouchTopPadding = 28.dp
+  val PlayerTouchOverlayHorizontalPadding = 24.dp
+  val PlayerTouchBottomOverlayHorizontalPadding = 0.dp
+  val PlayerTouchBackButtonSize = 52.dp
+  val PlayerTouchBackIconSize = 28.dp
+  val PlayerTouchControlBarHeight = 76.dp
+  val PlayerTouchControlBarHorizontalPadding = 22.dp
+  val PlayerTouchControlBarBottomPadding = 16.dp
+  val PlayerTouchActionButtonSize = 46.dp
+  val PlayerTouchActionIconSize = 24.dp
+  val PlayerTouchSliderHeight = 34.dp
+  val PlayerTouchSliderTrackHeight = 7.dp
+  val PlayerTouchSliderThumbSize = 22.dp
+  val PlayerTouchSliderExpandedThumbSize = 30.dp
 }
 
 object BiliTypography {
@@ -255,11 +293,14 @@ object BiliMotion {
   const val PlayerProgressUpdateMs = 500L
   const val PlayerSeekPreviewAutoCommitMs = 1_200L
   const val PlayerClockUpdateMs = 30_000L
+  const val TouchPullRefreshSpinnerRotationMs = 720
+  const val PlaybackHeroTransitionMs = 500
   const val PlaybackTransitionScrimInMs = 30
   const val PlaybackTransitionScrimHoldMs = 5
   const val PlaybackTransitionScrimOutMs = 30
   val FocusEasing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
   val FocusScrollEasing = CubicBezierEasing(0.215f, 0.61f, 0.355f, 1.0f)
+  val PlaybackHeroEasing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
 }
 
 object BiliFocus {
@@ -343,6 +384,24 @@ object BiliFocus {
   const val HomeSectionCapsuleBorderAlpha = 0.18f
   const val HomeSectionTabFocusedSurfaceAlpha = 0.08f
   const val SettingsChipSelectedBackgroundAlpha = 0.24f
+  const val PlayerTouchFeedbackSmoothSurfaceAlpha = 0.82f
+  const val PlayerTouchFeedbackBalancedSurfaceAlpha = 0.92f
+  const val PlayerTouchFeedbackRefinedSurfaceAlpha = 0.72f
+  const val PlayerTouchFeedbackSmoothBorderAlpha = 0f
+  const val PlayerTouchFeedbackBalancedBorderAlpha = 0.18f
+  const val PlayerTouchFeedbackRefinedBorderAlpha = 0.36f
+  const val PlayerTouchFeedbackTrackAlpha = 0.22f
+  const val PlayerTouchChromeSmoothSurfaceAlpha = 0.86f
+  const val PlayerTouchChromeBalancedSurfaceAlpha = 0.82f
+  const val PlayerTouchChromeRefinedSurfaceAlpha = 0.68f
+  const val PlayerTouchChromeSmoothBorderAlpha = 0.08f
+  const val PlayerTouchChromeBalancedBorderAlpha = 0.14f
+  const val PlayerTouchChromeRefinedBorderAlpha = 0.20f
+  const val PlayerTouchSliderTrackAlpha = 0.16f
+  const val PlayerTouchSliderBufferedAlpha = 0.40f
+  const val PlayerTouchSliderThumbSurfaceAlpha = 0.12f
+  const val PlaybackHeroScrimAlpha = 0.58f
+  const val TouchPullRefreshSpinnerSweepDegrees = 255f
   val BorderWidth = 3.dp
   val RestingBorderWidth = 1.dp
   val RestingShadowElevation = 0.dp

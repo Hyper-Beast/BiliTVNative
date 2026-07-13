@@ -7,7 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,23 +25,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyGridItemInfo
-import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -51,28 +45,30 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.ImeAction
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kirin.bilitv.R
 import com.kirin.bilitv.core.model.VideoSummary
-import com.kirin.bilitv.core.network.VideoRepository
-import com.kirin.bilitv.core.storage.SearchHistoryStore
 import com.kirin.bilitv.ui.common.FeedStatusScreen
 import com.kirin.bilitv.ui.common.VideoGridSkeleton
 import com.kirin.bilitv.ui.focus.BiliFocusableSurface
-import com.kirin.bilitv.ui.home.TvVideoGrid
-import com.kirin.bilitv.ui.home.VideoCard
+import com.kirin.bilitv.ui.home.AdaptiveVideoGrid
 import com.kirin.bilitv.ui.i18n.convertChineseText
+import com.kirin.bilitv.ui.input.InteractionMode
+import com.kirin.bilitv.ui.input.LocalInteractionMode
 import com.kirin.bilitv.ui.settings.LocalBiliPerformancePolicy
 import com.kirin.bilitv.ui.theme.BiliColors
 import com.kirin.bilitv.ui.theme.BiliFocus
@@ -82,105 +78,53 @@ import com.kirin.bilitv.ui.theme.BiliSizing
 import com.kirin.bilitv.ui.theme.BiliSpacing
 import com.kirin.bilitv.ui.theme.BiliTypography
 import com.kirin.bilitv.ui.theme.LocalHomeColors
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 @Stable
-internal class SearchUiState {
-  var searchText by mutableStateOf("")
-  var activeQuery by mutableStateOf<String?>(null)
-  var selectedOrderKey by mutableStateOf(SearchSortOptions.first().key)
+internal class SearchFocusState {
   var focusFirstResult by mutableStateOf(true)
   var focusedResultIndex by mutableIntStateOf(0)
   var focusedResultKey by mutableStateOf("")
-  var retryKey by mutableIntStateOf(0)
-  var resultState by mutableStateOf<SearchResultState>(SearchResultState.Loading)
-  var loadedQuery by mutableStateOf("")
-  var loadedOrderKey by mutableStateOf("")
-  var loadedRetryKey by mutableIntStateOf(-1)
-
-  fun startSearch(query: String) {
-    searchText = query
-    if (activeQuery != query) {
-      resetResultsForQuery(query)
-    }
-    activeQuery = query
-  }
-
-  fun backToKeyboard() {
-    activeQuery = null
-  }
 
   fun clear() {
-    searchText = ""
-    activeQuery = null
-    resetResultsForQuery("")
-  }
-
-  fun selectOrder(orderKey: String) {
-    if (selectedOrderKey == orderKey) {
-      return
-    }
-    selectedOrderKey = orderKey
-    focusFirstResult = false
-    focusedResultIndex = 0
-    focusedResultKey = ""
-    retryKey = 0
-    resultState = SearchResultState.Loading
-    loadedQuery = ""
-    loadedOrderKey = ""
-    loadedRetryKey = -1
-  }
-
-  private fun resetResultsForQuery(query: String) {
-    selectedOrderKey = SearchSortOptions.first().key
     focusFirstResult = true
     focusedResultIndex = 0
     focusedResultKey = ""
-    retryKey = 0
-    resultState = SearchResultState.Loading
-    loadedQuery = query.takeIf { it.isBlank() }.orEmpty()
-    loadedOrderKey = ""
-    loadedRetryKey = -1
+  }
+
+  fun resetForSortChange() {
+    focusFirstResult = false
+    focusedResultIndex = 0
+    focusedResultKey = ""
   }
 }
 
 @Composable
 internal fun SearchScreen(
-  videoRepository: VideoRepository,
-  searchHistoryStore: SearchHistoryStore,
-  uiState: SearchUiState,
+  viewModel: SearchViewModel,
+  focusState: SearchFocusState,
   firstItemFocusRequester: FocusRequester,
   restoreFocusRequestKey: Int,
   onRestoreFocusHandled: (Int) -> Unit,
   onMoveLeftToNav: () -> Boolean,
   onVideoSelected: (VideoSummary) -> Unit,
 ) {
-  val coroutineScope = rememberCoroutineScope()
-  val searchHistory by searchHistoryStore.history.collectAsState(initial = emptyList())
-  var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
+  val viewState by viewModel.viewState.collectAsStateWithLifecycle()
+  val interactionMode = LocalInteractionMode.current
+  if (interactionMode == InteractionMode.Touch) {
+    SearchTouchScreen(
+      viewModel = viewModel,
+      viewState = viewState,
+      focusState = focusState,
+      onVideoSelected = onVideoSelected,
+    )
+    return
+  }
+
   var returnFocusToKeyboard by remember { mutableStateOf(false) }
   val screenFocusRequester = remember { FocusRequester() }
 
-  LaunchedEffect(uiState.searchText) {
-    if (uiState.searchText.isBlank()) {
-      suggestions = emptyList()
-      return@LaunchedEffect
-    }
-
-    delay(SearchSuggestionDebounceMs)
-    suggestions = runCatching {
-      videoRepository.getSearchSuggestions(uiState.searchText.trim())
-    }.getOrElse {
-      emptyList()
-    }
-  }
-
-  LaunchedEffect(uiState.activeQuery, returnFocusToKeyboard) {
-    if (uiState.activeQuery == null && returnFocusToKeyboard) {
+  LaunchedEffect(viewState.activeQuery, returnFocusToKeyboard) {
+    if (viewState.activeQuery == null && returnFocusToKeyboard) {
       withFrameNanos { }
       runCatching {
         firstItemFocusRequester.requestFocus()
@@ -189,7 +133,7 @@ internal fun SearchScreen(
     }
   }
 
-  val query = uiState.activeQuery
+  val query = viewState.activeQuery
   Box(
     modifier = Modifier
       .fillMaxSize()
@@ -198,21 +142,19 @@ internal fun SearchScreen(
   ) {
     if (query == null) {
       SearchKeyboardView(
-        searchText = uiState.searchText,
-        suggestions = suggestions,
-        searchHistory = searchHistory,
+        searchText = viewState.searchText,
+        suggestions = viewState.suggestions,
+        searchHistory = viewState.searchHistory,
         keyboardFocusRequester = firstItemFocusRequester,
         onMoveLeftToNav = onMoveLeftToNav,
         onTextChange = { nextText ->
-          uiState.searchText = nextText
+          viewModel.updateSearchText(nextText)
         },
         onClearSearchHistory = {
           runCatching {
             firstItemFocusRequester.requestFocus()
           }
-          coroutineScope.launch {
-            searchHistoryStore.clear()
-          }
+          viewModel.clearSearchHistory()
         },
         onSearch = { text ->
           val trimmed = text.trim()
@@ -220,29 +162,412 @@ internal fun SearchScreen(
             runCatching {
               screenFocusRequester.requestFocus()
             }
-            coroutineScope.launch {
-              searchHistoryStore.add(trimmed)
-            }
-            uiState.startSearch(trimmed)
+            focusState.clear()
+            viewModel.startSearch(trimmed)
           }
         },
       )
     } else {
       SearchResultsView(
         query = query,
-        videoRepository = videoRepository,
-        uiState = uiState,
+        viewModel = viewModel,
+        viewState = viewState,
+        focusState = focusState,
         firstResultFocusRequester = firstItemFocusRequester,
         restoreFocusRequestKey = restoreFocusRequestKey,
         onRestoreFocusHandled = onRestoreFocusHandled,
         onMoveLeftToNav = onMoveLeftToNav,
         onBackToKeyboard = {
-          uiState.backToKeyboard()
+          viewModel.backToKeyboard()
           returnFocusToKeyboard = true
         },
         onVideoSelected = onVideoSelected,
       )
     }
+  }
+}
+
+@Composable
+private fun SearchTouchScreen(
+  viewModel: SearchViewModel,
+  viewState: SearchViewState,
+  focusState: SearchFocusState,
+  onVideoSelected: (VideoSummary) -> Unit,
+) {
+  val inputFocusRequester = remember { FocusRequester() }
+  val focusManager = LocalFocusManager.current
+
+  fun submitSearch(text: String) {
+    val trimmed = text.trim()
+    if (trimmed.isEmpty()) return
+    focusState.clear()
+    viewModel.startSearch(trimmed)
+    focusManager.clearFocus()
+  }
+
+  LaunchedEffect(Unit) {
+    withFrameNanos { }
+    runCatching {
+      inputFocusRequester.requestFocus()
+    }
+  }
+
+  Column(
+    modifier = Modifier
+      .fillMaxSize()
+      .padding(
+        start = BiliSizing.ContentPadding,
+        top = BiliSizing.SearchTouchTopPadding,
+        end = BiliSizing.ContentPadding,
+        bottom = BiliSizing.ContentPadding,
+      ),
+  ) {
+    SearchTouchInputBar(
+      searchText = viewState.searchText,
+      inputFocusRequester = inputFocusRequester,
+      onTextChange = viewModel::updateSearchText,
+      onClear = {
+        viewModel.clear()
+        runCatching {
+          inputFocusRequester.requestFocus()
+        }
+      },
+      onSearch = ::submitSearch,
+    )
+    Spacer(modifier = Modifier.height(BiliSizing.SearchTouchContentTopPadding))
+    val query = viewState.activeQuery
+    if (query == null) {
+      SearchTouchSuggestionContent(
+        searchText = viewState.searchText,
+        suggestions = viewState.suggestions,
+        searchHistory = viewState.searchHistory,
+        onSuggestionSelected = ::submitSearch,
+        onClearSearchHistory = viewModel::clearSearchHistory,
+        modifier = Modifier.weight(1f),
+      )
+    } else {
+      SearchTouchResultsView(
+        query = query,
+        viewModel = viewModel,
+        viewState = viewState,
+        focusState = focusState,
+        onBackToSuggestions = viewModel::backToKeyboard,
+        onVideoSelected = onVideoSelected,
+        modifier = Modifier.weight(1f),
+      )
+    }
+  }
+}
+
+@Composable
+private fun SearchTouchInputBar(
+  searchText: String,
+  inputFocusRequester: FocusRequester,
+  onTextChange: (String) -> Unit,
+  onClear: () -> Unit,
+  onSearch: (String) -> Unit,
+) {
+  val homeColors = LocalHomeColors.current
+  val shape = RoundedCornerShape(BiliRadius.Card)
+  Row(
+    modifier = Modifier
+      .fillMaxWidth()
+      .height(BiliSizing.SearchTouchInputHeight),
+    horizontalArrangement = Arrangement.spacedBy(BiliSpacing.Md),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    BasicTextField(
+      value = searchText,
+      onValueChange = onTextChange,
+      modifier = Modifier
+        .weight(1f)
+        .fillMaxHeight()
+        .focusRequester(inputFocusRequester)
+        .clip(shape)
+        .background(homeColors.glassSurfaceStrong, shape)
+        .border(BorderStroke(BiliFocus.RestingBorderWidth, homeColors.glassBorder), shape)
+        .padding(horizontal = BiliSpacing.Lg),
+      singleLine = true,
+      textStyle = TextStyle(
+        color = homeColors.textPrimary,
+        fontSize = BiliTypography.SearchInput,
+        fontWeight = FontWeight.Bold,
+      ),
+      cursorBrush = SolidColor(homeColors.accent),
+      keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+      keyboardActions = KeyboardActions(
+        onSearch = {
+          onSearch(searchText)
+        },
+      ),
+      decorationBox = { innerTextField ->
+        Box(
+          modifier = Modifier.fillMaxSize(),
+          contentAlignment = Alignment.CenterStart,
+        ) {
+          if (searchText.isBlank()) {
+            Text(
+              text = stringResource(R.string.search_input_placeholder),
+              color = homeColors.textTertiary,
+              fontSize = BiliTypography.SearchInput,
+              fontWeight = FontWeight.Bold,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+            )
+          }
+          innerTextField()
+        }
+      },
+    )
+    if (searchText.isNotBlank()) {
+      SearchTouchActionButton(
+        label = stringResource(R.string.search_action_clear),
+        onClick = onClear,
+      )
+    }
+    SearchTouchActionButton(
+      label = stringResource(R.string.search_action_search),
+      action = true,
+      onClick = {
+        onSearch(searchText)
+      },
+    )
+  }
+}
+
+@Composable
+private fun SearchTouchActionButton(
+  label: String,
+  action: Boolean = false,
+  onClick: () -> Unit,
+) {
+  val homeColors = LocalHomeColors.current
+  val shape = RoundedCornerShape(BiliRadius.Card)
+  Box(
+    modifier = Modifier
+      .width(BiliSizing.SearchTouchActionButtonWidth)
+      .fillMaxHeight()
+      .clip(shape)
+      .background(
+        color = if (action) homeColors.accent else homeColors.glassSurfaceStrong,
+        shape = shape,
+      )
+      .border(
+        BorderStroke(
+          BiliFocus.RestingBorderWidth,
+          if (action) BiliColors.Transparent else homeColors.glassBorder,
+        ),
+        shape,
+      )
+      .clickable(onClick = onClick),
+    contentAlignment = Alignment.Center,
+  ) {
+    Text(
+      text = label,
+      color = if (action) BiliColors.TextPrimary else homeColors.textSecondary,
+      fontSize = BiliTypography.BodySmall,
+      fontWeight = FontWeight.Bold,
+      maxLines = 1,
+    )
+  }
+}
+
+@Composable
+private fun SearchTouchSuggestionContent(
+  searchText: String,
+  suggestions: List<String>,
+  searchHistory: List<String>,
+  onSuggestionSelected: (String) -> Unit,
+  onClearSearchHistory: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  Box(modifier = modifier.fillMaxSize()) {
+    when {
+      searchText.isBlank() && searchHistory.isEmpty() -> SearchHintText(
+        text = stringResource(R.string.search_empty_prompt),
+      )
+      searchText.isBlank() -> SearchHistoryList(
+        history = searchHistory,
+        onHistorySelected = onSuggestionSelected,
+        onClearSearchHistory = onClearSearchHistory,
+      )
+      suggestions.isEmpty() -> SearchHintText(
+        text = stringResource(R.string.search_no_suggestions),
+      )
+      else -> {
+        val homeColors = LocalHomeColors.current
+        LazyColumn(
+          modifier = Modifier.fillMaxSize(),
+          contentPadding = PaddingValues(vertical = BiliSpacing.Md),
+          verticalArrangement = Arrangement.spacedBy(BiliSpacing.Sm),
+        ) {
+          item {
+            Text(
+              text = stringResource(R.string.search_suggestions_title),
+              color = homeColors.textSecondary,
+              fontSize = BiliTypography.SectionTitle,
+              fontWeight = FontWeight.Bold,
+              modifier = Modifier.padding(bottom = BiliSpacing.Sm),
+            )
+          }
+          items(suggestions, key = { suggestion -> suggestion }) { suggestion ->
+            SearchSuggestionItem(
+              text = suggestion,
+              displayText = convertChineseText(suggestion),
+              onClick = {
+                onSuggestionSelected(suggestion)
+              },
+            )
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun SearchTouchResultsView(
+  query: String,
+  viewModel: SearchViewModel,
+  viewState: SearchViewState,
+  focusState: SearchFocusState,
+  onBackToSuggestions: () -> Unit,
+  onVideoSelected: (VideoSummary) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  val firstResultFocusRequester = remember { FocusRequester() }
+  val selectedSortFocusRequester = remember { FocusRequester() }
+  Column(
+    modifier = modifier.fillMaxSize(),
+    verticalArrangement = Arrangement.spacedBy(BiliSpacing.Lg),
+  ) {
+    SearchTouchResultsHeader(
+      query = query,
+      selectedOrderKey = viewState.selectedOrderKey,
+      onOrderSelected = { orderKey ->
+        if (orderKey != viewState.selectedOrderKey) {
+          focusState.resetForSortChange()
+        }
+        viewModel.selectOrder(orderKey)
+      },
+    )
+    Box(modifier = Modifier.fillMaxSize()) {
+      when (val currentState = viewState.resultState) {
+        SearchResultState.Loading -> VideoGridSkeleton()
+        SearchResultState.Empty -> FeedStatusScreen(message = stringResource(R.string.search_empty))
+        is SearchResultState.Failed -> FeedStatusScreen(
+          message = stringResource(R.string.search_failed_with_message, currentState.message),
+          actionLabel = stringResource(R.string.action_retry),
+          onAction = {
+            viewModel.retry()
+          },
+        )
+        is SearchResultState.Success -> SearchResultGrid(
+          videos = currentState.videos,
+          firstResultFocusRequester = firstResultFocusRequester,
+          selectedSortFocusRequester = selectedSortFocusRequester,
+          restoredFocusIndex = currentState.videos.resolveFocusIndex(
+            focusKey = focusState.focusedResultKey,
+            fallbackIndex = focusState.focusedResultIndex,
+          ),
+          restoreFocusRequestKey = 0,
+          onRestoreFocusHandled = {},
+          focusFirstResult = false,
+          onFirstResultFocused = {},
+          onFocusedIndexChange = { index, video ->
+            focusState.focusedResultIndex = index
+            focusState.focusedResultKey = video.focusRestoreKey()
+          },
+          onLoadMore = viewModel::loadNextPage,
+          onRefresh = {
+            focusState.clear()
+            viewModel.retry()
+          },
+          onMoveLeftToNav = { false },
+          onBackToKeyboard = onBackToSuggestions,
+          onVideoSelected = onVideoSelected,
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun SearchTouchResultsHeader(
+  query: String,
+  selectedOrderKey: String,
+  onOrderSelected: (String) -> Unit,
+) {
+  val homeColors = LocalHomeColors.current
+  Column(
+    modifier = Modifier.fillMaxWidth(),
+    verticalArrangement = Arrangement.spacedBy(BiliSpacing.Md),
+  ) {
+    Text(
+      text = stringResource(R.string.search_results_title, convertChineseText(query)),
+      color = homeColors.textPrimary,
+      fontSize = BiliTypography.SectionTitle,
+      fontWeight = FontWeight.Bold,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+    )
+    LazyRow(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(BiliSpacing.Md),
+      contentPadding = PaddingValues(horizontal = BiliSpacing.Xs),
+    ) {
+      items(SearchSortOptions, key = { option -> option.key }) { option ->
+        SearchTouchSortButton(
+          option = option,
+          selected = selectedOrderKey == option.key,
+          onSelected = {
+            onOrderSelected(option.key)
+          },
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun SearchTouchSortButton(
+  option: SearchSortOption,
+  selected: Boolean,
+  onSelected: () -> Unit,
+) {
+  val homeColors = LocalHomeColors.current
+  val shape = RoundedCornerShape(BiliRadius.Pill)
+  Box(
+    modifier = Modifier
+      .height(BiliSizing.HomeSectionTabHeight)
+      .widthIn(min = BiliSizing.HomeSectionTabMinWidth)
+      .clip(shape)
+      .background(
+        color = if (selected) homeColors.accent else homeColors.glassSurfaceStrong,
+        shape = shape,
+      )
+      .border(
+        BorderStroke(
+          BiliFocus.RestingBorderWidth,
+          if (selected) BiliColors.Transparent else homeColors.glassBorder,
+        ),
+        shape,
+      )
+      .clickable(onClick = onSelected)
+      .padding(horizontal = BiliSpacing.Lg),
+    contentAlignment = Alignment.Center,
+  ) {
+    Text(
+      text = stringResource(option.titleRes),
+      color = if (selected) BiliColors.TextPrimary else homeColors.textSecondary,
+      fontSize = BiliTypography.HomeSectionTab,
+      lineHeight = BiliTypography.HomeSectionTabLineHeight,
+      fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+      maxLines = 1,
+      style = TextStyle(
+        platformStyle = PlatformTextStyle(includeFontPadding = false),
+      ),
+    )
   }
 }
 
@@ -572,8 +897,9 @@ private fun SearchSuggestionItem(
 @Composable
 private fun SearchResultsView(
   query: String,
-  videoRepository: VideoRepository,
-  uiState: SearchUiState,
+  viewModel: SearchViewModel,
+  viewState: SearchViewState,
+  focusState: SearchFocusState,
   firstResultFocusRequester: FocusRequester,
   restoreFocusRequestKey: Int,
   onRestoreFocusHandled: (Int) -> Unit,
@@ -581,94 +907,10 @@ private fun SearchResultsView(
   onBackToKeyboard: () -> Unit,
   onVideoSelected: (VideoSummary) -> Unit,
 ) {
-  val coroutineScope = rememberCoroutineScope()
   val sortFocusRequesters = remember {
     SearchSortOptions.associate { option -> option.key to FocusRequester() }
   }
-  val selectedOrderKey = uiState.selectedOrderKey
-
-  LaunchedEffect(videoRepository, query, selectedOrderKey, uiState.retryKey) {
-    if (
-      uiState.loadedQuery == query &&
-      uiState.loadedOrderKey == selectedOrderKey &&
-      uiState.loadedRetryKey == uiState.retryKey &&
-      uiState.resultState !is SearchResultState.Loading
-    ) {
-      return@LaunchedEffect
-    }
-
-    uiState.resultState = SearchResultState.Loading
-    uiState.focusedResultIndex = 0
-    uiState.focusedResultKey = ""
-    val nextState = try {
-      val videos = videoRepository.searchVideos(
-        keyword = query,
-        page = FirstPage,
-        order = selectedOrderKey,
-      )
-      if (videos.isEmpty()) {
-        SearchResultState.Empty
-      } else {
-        SearchResultState.Success(
-          videos = videos,
-          nextPage = FirstPage + 1,
-          loadingMore = false,
-          endReached = videos.size < PageSize,
-          loadMoreError = "",
-        )
-      }
-    } catch (error: CancellationException) {
-      throw error
-    } catch (error: Exception) {
-      SearchResultState.Failed(error.message.orEmpty())
-    }
-    uiState.loadedQuery = query
-    uiState.loadedOrderKey = selectedOrderKey
-    uiState.loadedRetryKey = uiState.retryKey
-    uiState.resultState = nextState
-  }
-
-  fun loadNextPage() {
-    val currentState = uiState.resultState as? SearchResultState.Success ?: return
-    if (currentState.loadingMore || currentState.endReached) {
-      return
-    }
-
-    val pageToLoad = currentState.nextPage
-    val orderToLoad = selectedOrderKey
-    uiState.resultState = currentState.copy(
-      loadingMore = true,
-      loadMoreError = "",
-    )
-
-    coroutineScope.launch {
-      uiState.resultState = try {
-        val nextVideos = videoRepository.searchVideos(
-          keyword = query,
-          page = pageToLoad,
-          order = orderToLoad,
-        )
-        val latestState = uiState.resultState as? SearchResultState.Success ?: return@launch
-        val mergedVideos = latestState.videos.appendUniqueByBvid(nextVideos)
-        latestState.copy(
-          videos = mergedVideos,
-          nextPage = pageToLoad + 1,
-          loadingMore = false,
-          endReached = nextVideos.size < PageSize ||
-            mergedVideos.size == latestState.videos.size,
-          loadMoreError = "",
-        )
-      } catch (error: CancellationException) {
-        throw error
-      } catch (error: Exception) {
-        val latestState = uiState.resultState as? SearchResultState.Success ?: return@launch
-        latestState.copy(
-          loadingMore = false,
-          loadMoreError = error.message.orEmpty(),
-        )
-      }
-    }
-  }
+  val selectedOrderKey = viewState.selectedOrderKey
 
   Column(
     modifier = Modifier
@@ -689,7 +931,10 @@ private fun SearchResultsView(
       firstResultFocusRequester = firstResultFocusRequester,
       onMoveLeftToNav = onMoveLeftToNav,
       onOrderSelected = { orderKey ->
-        uiState.selectOrder(orderKey)
+        if (orderKey != viewState.selectedOrderKey) {
+          focusState.resetForSortChange()
+        }
+        viewModel.selectOrder(orderKey)
       },
     )
     Box(
@@ -697,14 +942,14 @@ private fun SearchResultsView(
         .fillMaxSize()
         .padding(top = BiliSpacing.Lg),
     ) {
-      when (val currentState = uiState.resultState) {
+      when (val currentState = viewState.resultState) {
         SearchResultState.Loading -> VideoGridSkeleton()
         SearchResultState.Empty -> FeedStatusScreen(message = stringResource(R.string.search_empty))
         is SearchResultState.Failed -> FeedStatusScreen(
           message = stringResource(R.string.search_failed_with_message, currentState.message),
           actionLabel = stringResource(R.string.action_retry),
           onAction = {
-            uiState.retryKey += 1
+            viewModel.retry()
           },
         )
         is SearchResultState.Success -> SearchResultGrid(
@@ -712,20 +957,20 @@ private fun SearchResultsView(
           firstResultFocusRequester = firstResultFocusRequester,
           selectedSortFocusRequester = sortFocusRequesters.getValue(selectedOrderKey),
           restoredFocusIndex = currentState.videos.resolveFocusIndex(
-            focusKey = uiState.focusedResultKey,
-            fallbackIndex = uiState.focusedResultIndex,
+            focusKey = focusState.focusedResultKey,
+            fallbackIndex = focusState.focusedResultIndex,
           ),
           restoreFocusRequestKey = restoreFocusRequestKey,
           onRestoreFocusHandled = onRestoreFocusHandled,
-          focusFirstResult = uiState.focusFirstResult,
+          focusFirstResult = focusState.focusFirstResult,
           onFirstResultFocused = {
-            uiState.focusFirstResult = false
+            focusState.focusFirstResult = false
           },
           onFocusedIndexChange = { index, video ->
-            uiState.focusedResultIndex = index
-            uiState.focusedResultKey = video.focusRestoreKey()
+            focusState.focusedResultIndex = index
+            focusState.focusedResultKey = video.focusRestoreKey()
           },
-          onLoadMore = ::loadNextPage,
+          onLoadMore = viewModel::loadNextPage,
           onMoveLeftToNav = onMoveLeftToNav,
           onBackToKeyboard = onBackToKeyboard,
           onVideoSelected = onVideoSelected,
@@ -894,6 +1139,7 @@ private fun SearchResultGrid(
   onFirstResultFocused: () -> Unit,
   onFocusedIndexChange: (Int, VideoSummary) -> Unit,
   onLoadMore: () -> Unit,
+  onRefresh: (() -> Unit)? = null,
   onMoveLeftToNav: () -> Boolean,
   onBackToKeyboard: () -> Unit,
   onVideoSelected: (VideoSummary) -> Unit,
@@ -908,7 +1154,7 @@ private fun SearchResultGrid(
     }
   }
 
-  TvVideoGrid(
+  AdaptiveVideoGrid(
     videos = videos,
     firstItemFocusRequester = firstResultFocusRequester,
     restoredFocusIndex = restoredFocusIndex,
@@ -916,6 +1162,7 @@ private fun SearchResultGrid(
     onRestoreFocusHandled = onRestoreFocusHandled,
     onFocusedIndexChange = onFocusedIndexChange,
     onLoadMore = onLoadMore,
+    onRefresh = onRefresh,
     onMoveLeftToNav = onMoveLeftToNav,
     onMoveUpFromFirstRow = {
       runCatching {
@@ -931,127 +1178,8 @@ private fun SearchResultGrid(
   )
 }
 
-private suspend fun LazyGridState.scrollItemIntoStablePosition(
-  index: Int,
-  totalItems: Int,
-  fallbackItemHeightPx: Int,
-  scrollInsetPx: Int,
-  focusedRowTopPaddingPx: Int,
-  focusScale: Float,
-  smoothScroll: Boolean,
-) {
-  val layout = layoutInfo
-  val columns = layout.estimatedColumnCount()
-  val row = index / columns
-  val lastRow = (totalItems - 1) / columns
-  val rowStartIndex = row * columns
-  val viewportHeight = layout.viewportEndOffset - layout.viewportStartOffset
-  val itemHeightPx = layout.visibleItemsInfo.firstOrNull { item -> item.index == index }?.size?.height
-    ?: layout.visibleItemsInfo.firstOrNull()?.size?.height
-    ?: fallbackItemHeightPx
-  val focusOverflowPx = ((itemHeightPx * (focusScale - 1f)) / 2f).roundToInt()
-  val edgeInsetPx = scrollInsetPx + focusOverflowPx
-  val focusedItem = layout.visibleItemsInfo.firstOrNull { item -> item.index == index }
-  if (focusedItem != null) {
-    val itemTop = focusedItem.offset.y
-    val viewportTop = layout.viewportStartOffset
-    val viewportBottom = layout.viewportEndOffset - edgeInsetPx
-    val targetTop = (layout.viewportStartOffset + focusedRowTopPaddingPx.coerceAtLeast(edgeInsetPx))
-      .coerceAtMost(viewportBottom - focusedItem.size.height)
-      .coerceAtLeast(viewportTop + edgeInsetPx)
-    val scrollDelta = itemTop - targetTop
-    if (kotlin.math.abs(scrollDelta) <= BiliMotion.FocusScrollMinDeltaPx) {
-      return
-    }
-    if (smoothScroll) {
-      animateScrollBy(scrollDelta.toFloat())
-    } else {
-      scroll {
-        scrollBy(scrollDelta.toFloat())
-      }
-    }
-    return
-  }
-  val maxTop = (viewportHeight - itemHeightPx - edgeInsetPx).coerceAtLeast(edgeInsetPx)
-  val desiredTop = when (row) {
-    0 -> edgeInsetPx
-    lastRow -> maxTop
-    else -> {
-      ((viewportHeight - itemHeightPx) / 2).coerceIn(edgeInsetPx, maxTop)
-    }
-  }
-
-  if (smoothScroll) {
-    animateScrollToItem(
-      index = rowStartIndex,
-      scrollOffset = -focusedRowTopPaddingPx,
-    )
-  } else {
-    scrollToItem(
-      index = rowStartIndex,
-      scrollOffset = -focusedRowTopPaddingPx,
-    )
-  }
-}
-
-private fun LazyGridState.targetIndexForDirection(
-  fromIndex: Int,
-  totalItems: Int,
-  direction: Key,
-): Int? {
-  val columns = layoutInfo.estimatedColumnCount()
-  val currentRow = fromIndex / columns
-  val currentColumn = fromIndex % columns
-  val lastIndex = totalItems - 1
-  val lastRow = lastIndex / columns
-
-  return when (direction) {
-    Key.DirectionUp -> {
-      if (currentRow == 0) {
-        null
-      } else {
-        ((currentRow - 1) * columns + currentColumn).coerceAtMost(lastIndex)
-      }
-    }
-    Key.DirectionDown -> {
-      if (currentRow >= lastRow) {
-        null
-      } else {
-        ((currentRow + 1) * columns + currentColumn).coerceAtMost(lastIndex)
-      }
-    }
-    Key.DirectionLeft -> {
-      if (currentColumn == 0) null else fromIndex - 1
-    }
-    Key.DirectionRight -> {
-      val nextIndex = fromIndex + 1
-      if (nextIndex > lastIndex || nextIndex / columns != currentRow) null else nextIndex
-    }
-    else -> null
-  }
-}
-
-private fun androidx.compose.foundation.lazy.grid.LazyGridLayoutInfo.estimatedColumnCount(): Int {
-  return visibleItemsInfo
-    .map(LazyGridItemInfo::columnAnchor)
-    .distinct()
-    .count()
-    .coerceAtLeast(1)
-}
-
-private val LazyGridItemInfo.columnAnchor: Int
-  get() = offset.x
-
 private fun Key.isConfirmKey(): Boolean {
   return this == Key.Enter || this == Key.NumPadEnter || this == Key.DirectionCenter
-}
-
-private fun List<VideoSummary>.appendUniqueByBvid(nextVideos: List<VideoSummary>): List<VideoSummary> {
-  if (nextVideos.isEmpty()) {
-    return this
-  }
-  val knownBvids = mapTo(mutableSetOf()) { video -> video.bvid }
-  return this + nextVideos.filter { video -> knownBvids.add(video.bvid) }
 }
 
 private fun List<VideoSummary>.resolveFocusIndex(focusKey: String, fallbackIndex: Int): Int {
@@ -1071,40 +1199,6 @@ private fun VideoSummary.focusRestoreKey(): String {
     }
   }
 }
-
-private fun Int.shouldLoadMore(totalItems: Int, threshold: Int): Boolean {
-  return totalItems - this <= threshold
-}
-
-internal sealed interface SearchResultState {
-  data object Loading : SearchResultState
-  data object Empty : SearchResultState
-  data class Failed(val message: String) : SearchResultState
-  data class Success(
-    val videos: List<VideoSummary>,
-    val nextPage: Int,
-    val loadingMore: Boolean,
-    val endReached: Boolean,
-    val loadMoreError: String,
-  ) : SearchResultState
-}
-
-private data class SearchSortOption(
-  val key: String,
-  val titleRes: Int,
-)
-
-private const val SearchSuggestionDebounceMs = 250L
-private const val RestoreFocusRetryCount = 8
-private const val FirstPage = 1
-private const val PageSize = 20
-
-private val SearchSortOptions = listOf(
-  SearchSortOption("totalrank", R.string.search_sort_totalrank),
-  SearchSortOption("click", R.string.search_sort_click),
-  SearchSortOption("pubdate", R.string.search_sort_pubdate),
-  SearchSortOption("dm", R.string.search_sort_dm),
-)
 
 private val SearchKeyboardRows = listOf(
   listOf("A", "B", "C", "D", "E", "F"),

@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import com.kirin.bilitv.ui.focus.BiliFocusableSurface
 import com.kirin.bilitv.ui.settings.LocalBiliPerformancePolicy
 import com.kirin.bilitv.ui.theme.BiliColors
@@ -46,6 +47,8 @@ fun FeedStatusScreen(
       text = message,
       color = BiliColors.TextSecondary,
       fontSize = BiliTypography.Body,
+      textAlign = TextAlign.Center,
+      modifier = Modifier.padding(horizontal = BiliSizing.ContentPadding),
     )
     if (actionLabel != null) {
       BiliFocusableSurface(

@@ -16,7 +16,7 @@ data class PlaybackRequest(
   val forceStartPosition: Boolean = false,
   val historyPage: Int = 0,
   val advanceToNextHistoryEpisode: Boolean = false,
-)
+) : java.io.Serializable
 
 data class PlaybackInfo(
   val bvid: String,
