@@ -294,3 +294,4 @@
 | P9-50 | TV 网格导航返回跳过残缺行 | Done | `TvVideoGrid` 的侧边栏进入焦点改为绑定首个完整可见行的第一张卡片；顶部行只剩少量像素时会跳过该行，没有完整可见行时选择可见面积最大的行，播放返回的原卡片恢复逻辑保持不变；新增 3 个入口行选择单测，针对性单测、`assembleDebug` 与 `assembleRelease -PtargetAbi=armeabi-v7a` 通过 |
 | P9-51 | 首页普通分区接口 404 修复 | Done | 普通分区从已统一返回业务码 `-404` 的 `/x/web-interface/dynamic/region` 切换到支持现有 `rid/pn/ps` 分页和 `archives` 映射的 `/x/web-interface/newlist`；推荐与热门接口保持不变；番剧、电影、游戏、知识、科技、音乐、舞蹈、生活、美食、动画 10 个现有 TID 实时抽查均返回 `code=0` 和 20 条数据，完整 JVM 单测与 `assembleDebug` 通过 |
 | P9-52 | 应用补丁版本递增 | Done | `versionName` 从 `1.0.0` 更新为 `1.0.1`，`versionCode` 从 `100` 更新为 `101`；`assembleDebug` 通过 |
+| P9-53 | 平板统一使用左侧导航布局 | Done | `AdaptiveAppScaffold` 不再按 Remote/Touch 切换应用壳，电视、平板和手机横屏统一复用图二所示的 `TvAppScaffold` 左侧导航；删除顶部导航专用 `TouchAppScaffold`，平板仍保留 Touch 网格分页、触摸搜索和播放器手势，不改成遥控器输入模式；Remote/Touch Compose 冒烟测试均改为验证左侧导航，完整 JVM 单测、Android 测试编译、默认 Debug 与 x86_64 Debug 构建通过，已安装到 `127.0.0.1:16384` 并截图确认左侧栏生效，最近日志未见 `AndroidRuntime` / `FATAL EXCEPTION` |
