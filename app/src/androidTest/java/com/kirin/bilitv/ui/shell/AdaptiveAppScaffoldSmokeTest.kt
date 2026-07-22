@@ -32,13 +32,12 @@ class AdaptiveAppScaffoldSmokeTest {
       ),
     )
 
-    composeRule.onNodeWithTag(AdaptiveAppScaffoldRemoteTestTag).assertExists()
-    composeRule.onNodeWithTag(AdaptiveAppScaffoldTouchTestTag).assertDoesNotExist()
+    composeRule.onNodeWithTag(AdaptiveAppScaffoldSideNavigationTestTag).assertExists()
     composeRule.onNodeWithTag(ScaffoldContentTestTag).assertExists()
   }
 
   @Test
-  fun touchProfileRendersTouchScaffoldAndContent() {
+  fun touchProfileRendersSideNavigationScaffoldAndContent() {
     renderScaffold(
       InteractionProfile(
         deviceClass = DeviceClass.Tablet,
@@ -46,8 +45,7 @@ class AdaptiveAppScaffoldSmokeTest {
       ),
     )
 
-    composeRule.onNodeWithTag(AdaptiveAppScaffoldTouchTestTag).assertExists()
-    composeRule.onNodeWithTag(AdaptiveAppScaffoldRemoteTestTag).assertDoesNotExist()
+    composeRule.onNodeWithTag(AdaptiveAppScaffoldSideNavigationTestTag).assertExists()
     composeRule.onNodeWithTag(ScaffoldContentTestTag).assertExists()
   }
 

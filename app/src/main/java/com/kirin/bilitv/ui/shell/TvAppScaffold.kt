@@ -29,7 +29,7 @@ internal fun TvAppScaffold(
   Row(
     modifier = Modifier
       .fillMaxSize()
-      .testTag(AdaptiveAppScaffoldRemoteTestTag),
+      .testTag(AdaptiveAppScaffoldSideNavigationTestTag),
   ) {
     AppSidebar(
       selectedDestination = selectedDestination,
