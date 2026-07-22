@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -47,6 +48,7 @@ import com.kirin.bilitv.ui.theme.BiliMotion
 import com.kirin.bilitv.ui.theme.BiliSizing
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -64,6 +66,28 @@ internal class TvGridFocusRestoreTargetTracker {
     }
     return trackedIndex
   }
+}
+
+internal data class TvGridVisibleRow(
+  val index: Int,
+  val offset: Int,
+  val size: Int,
+)
+
+internal fun resolveTvGridNavigationEntryRow(
+  viewportStartOffset: Int,
+  viewportEndOffset: Int,
+  visibleRows: List<TvGridVisibleRow>,
+): Int? {
+  val rowsInViewport = visibleRows.filter { row ->
+    row.size > 0 && row.offset < viewportEndOffset && row.offset + row.size > viewportStartOffset
+  }
+  val firstFullyVisibleRow = rowsInViewport.firstOrNull { row ->
+    row.offset >= viewportStartOffset && row.offset + row.size <= viewportEndOffset
+  }
+  return firstFullyVisibleRow?.index ?: rowsInViewport.maxByOrNull { row ->
+    minOf(row.offset + row.size, viewportEndOffset) - maxOf(row.offset, viewportStartOffset)
+  }?.index
 }
 
 private val TvGridBringIntoViewSpec = object : BringIntoViewSpec {
@@ -118,18 +142,12 @@ internal fun TvVideoGrid(
   val focusScrollInsetPx = with(density) { topPadding.roundToPx() }
   val focusedRowTopPaddingPx = with(density) { BiliFocus.FocusedRowTopPadding.roundToPx() }
   val videoCardFallbackHeightPx = with(density) { BiliSizing.VideoCardMinHeight.roundToPx() }
-  val restoredItemFocusRequester = remember { FocusRequester() }
-  val itemFocusRequesters = remember(videos.size, firstItemFocusRequester, restoredItemFocusRequester, restoreTargetIndex) {
-    List(videos.size) { index ->
-      when (index) {
-        0 -> firstItemFocusRequester
-        restoreTargetIndex -> restoredItemFocusRequester
-        else -> FocusRequester()
-      }
-    }
+  val itemFocusRequesters = remember(videos.size) {
+    List(videos.size) { FocusRequester() }
   }
   var focusScrollJob by remember { mutableStateOf<Job?>(null) }
   var focusedIndex by remember { mutableIntStateOf(-1) }
+  var navigationEntryTargetIndex by remember { mutableIntStateOf(0) }
   var rowScrollActive by remember { mutableStateOf(false) }
   var rowScrollGeneration by remember { mutableIntStateOf(0) }
   val focusScale = when {
@@ -143,6 +161,18 @@ internal fun TvVideoGrid(
     focusedIndex = if (focusedIndex >= 0) focusedIndex else restoredFocusIndex,
     enabled = !rowScrollActive,
   )
+
+  LaunchedEffect(listState, videos.size, topBleedPx) {
+    snapshotFlow {
+      listState.navigationEntryRow(topBleedPx)
+    }
+      .distinctUntilChanged()
+      .collect { row ->
+        if (row != null && videos.isNotEmpty()) {
+          navigationEntryTargetIndex = (row * columns).coerceIn(0, videos.lastIndex)
+        }
+      }
+  }
 
   suspend fun scrollRow(row: Int, smoothScroll: Boolean) {
     listState.scrollRowIntoStablePosition(
@@ -324,6 +354,13 @@ internal fun TvVideoGrid(
                 interactionPaused = rowScrollActive,
                 modifier = Modifier
                   .weight(1f)
+                  .then(
+                    if (index == navigationEntryTargetIndex.coerceIn(0, videos.lastIndex)) {
+                      Modifier.focusRequester(firstItemFocusRequester)
+                    } else {
+                      Modifier
+                    },
+                  )
                   .focusRequester(itemFocusRequesters[index])
                   .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) {
@@ -362,6 +399,21 @@ internal fun TvVideoGrid(
       }
     }
   }
+}
+
+private fun LazyListState.navigationEntryRow(topBleedPx: Int): Int? {
+  val layout = layoutInfo
+  return resolveTvGridNavigationEntryRow(
+    viewportStartOffset = layout.viewportStartOffset + topBleedPx,
+    viewportEndOffset = layout.viewportEndOffset,
+    visibleRows = layout.visibleItemsInfo.map { item ->
+      TvGridVisibleRow(
+        index = item.index,
+        offset = item.offset,
+        size = item.size,
+      )
+    },
+  )
 }
 
 private suspend fun LazyListState.scrollRowIntoStablePosition(

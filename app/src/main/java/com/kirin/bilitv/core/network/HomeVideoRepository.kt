@@ -96,7 +96,7 @@ internal class HomeVideoRepository(
 
   private suspend fun getRegionVideos(tid: Int, page: Int): List<VideoSummary> {
     val root = apiClient.getJson(
-      url = BiliApiEndpoints.Region,
+      url = BiliApiEndpoints.RegionLatest,
       params = mapOf(
         "rid" to tid.toString(),
         "pn" to page.toString(),

@@ -291,3 +291,6 @@
 | P9-47 | 退出播放反向共享元素修正 | Done | 删除退出路径的 PixelCopy 当前帧、手写 Rect 缩小 overlay、目标 bounds 上报和黑色快照兜底；退出时先在仍显示播放器的分支挂载全屏封面，再切回列表，让与进入播放相同的 Compose `sharedElement`、shared key、时长和 easing 原路反向缩回来源卡片；流畅档继续直接切换且不挂载转场；`compileDebugKotlin` 与 `armeabi-v7a` Release 构建通过，Release 已覆盖安装 `192.168.1.195:5555` |
 | P9-48 | 退出播放当前帧无缝缩回 | Done | 退出动画不再先显示全屏封面；在进度保存/上报完成后仅通过 `SurfaceView PixelCopy` 获取退出瞬间的当前视频帧，将该帧挂载一帧后直接沿同一 shared key 缩回来源卡片；不再使用窗口截图或 View.draw 黑帧兜底，并对纯黑采样帧做拒绝，抓帧失败时直接返回列表；流畅档不抓帧、不播放动画；`armeabi-v7a` Release 构建通过并已覆盖安装 `192.168.1.195:5555` |
 | P9-49 | README MVVM 与平板支持更新 | Done | README 项目定位从仅 Android TV 更新为 Android TV/平板双端；新增 InteractionProfile、Remote/Touch 隔离、平板网格/搜索/播放器手势、渐进式 MVVM 边界和双 ABI Release 构建说明；同步修正视觉档位名称与播放进出场描述；文档差异检查通过 |
+| P9-50 | TV 网格导航返回跳过残缺行 | Done | `TvVideoGrid` 的侧边栏进入焦点改为绑定首个完整可见行的第一张卡片；顶部行只剩少量像素时会跳过该行，没有完整可见行时选择可见面积最大的行，播放返回的原卡片恢复逻辑保持不变；新增 3 个入口行选择单测，针对性单测、`assembleDebug` 与 `assembleRelease -PtargetAbi=armeabi-v7a` 通过 |
+| P9-51 | 首页普通分区接口 404 修复 | Done | 普通分区从已统一返回业务码 `-404` 的 `/x/web-interface/dynamic/region` 切换到支持现有 `rid/pn/ps` 分页和 `archives` 映射的 `/x/web-interface/newlist`；推荐与热门接口保持不变；番剧、电影、游戏、知识、科技、音乐、舞蹈、生活、美食、动画 10 个现有 TID 实时抽查均返回 `code=0` 和 20 条数据，完整 JVM 单测与 `assembleDebug` 通过 |
+| P9-52 | 应用补丁版本递增 | Done | `versionName` 从 `1.0.0` 更新为 `1.0.1`，`versionCode` 从 `100` 更新为 `101`；`assembleDebug` 通过 |

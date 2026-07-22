@@ -10,7 +10,7 @@ object BiliApiEndpoints {
   const val BuvidActivate = "$ApiBase/x/internal/gaia-gateway/ExClimbWuzhi"
   const val Recommend = "$ApiBase/x/web-interface/wbi/index/top/feed/rcmd"
   const val Popular = "$ApiBase/x/web-interface/popular"
-  const val Region = "$ApiBase/x/web-interface/dynamic/region"
+  const val RegionLatest = "$ApiBase/x/web-interface/newlist"
   const val View = "$ApiBase/x/web-interface/view"
   const val ArchiveRelated = "$ApiBase/x/web-interface/archive/related"
   const val SpaceArcSearch = "$ApiBase/x/space/wbi/arc/search"
